@@ -1,0 +1,104 @@
+PIPELINED VECTOR PROCESSING IN KITES - HOW TO RUN
+
+This file only lists the steps and commands.
+Run them in Command Prompt (cmd).
+run_and_verify.bat runs the same steps for you from a menu.
+
+Folders
+  code\Kites-1.1.8                         source code of our simulator
+  code\Kites-1.1.8\newly_added_testcases   our manual tests and Google tests
+  presentation                             our slides
+  report                                   project report
+
+
+STEP 0 - Requirements (once)
+---------------------
+Install Qt 6.12 with the MinGW 13.1 kit, CMake and Ninja using the Qt
+installer, in the default folder C:\Qt.
+If Qt is somewhere else, change the paths in code\Kites-1.1.8\CMakePresets.json.
+
+
+STEP 1 - Open Command Prompt and go to the source folder
+--------------------------------------------------------
+  cd /d "<folder where you unzipped>\code\Kites-1.1.8"
+  set PATH=C:\Qt\Tools\CMake_64\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\mingw1310_64\bin;C:\Qt\6.12.0\mingw_64\bin;%PATH%
+
+Run every command below from this window. Each step starts from code\Kites-1.1.8.
+
+
+STEP 2 - Build and open the simulator
+-------------------------------------
+  cmake --preset release
+  cmake --build --preset release --parallel
+  build\release\Kites.exe
+
+(Or run  scripts\build_app.bat  once. It makes the KitesApp folder and the
+ Kites shortcut. After that, KitesApp\Kites.exe opens directly.)
+
+In the simulator:
+  1. File -> Open a .s file (for example examples\fir_vector_fp.s).
+  2. Choose a processor: single cycle, or one of the 5-stage pipelines.
+  3. Assemble, then Run or Step.
+  4. The vector registers v0-v31, VL and VTYPE are in the register panel.
+
+
+STEP 3 - Check the manual tests
+-------------------------------
+Folder: newly_added_testcases\manual_tests  (17 programs, test01 ... test15b)
+
+For each test:
+  1. In the simulator: File -> Open -> manual_tests\testNN_....s
+  2. Choose the processor, Assemble, Run.
+  3. Compare the registers with the "Expected" values in
+     manual_tests\TEST_RESULTS.md. That file also has our results on all
+     5 processors.
+
+Note: the no-hazard, no-forwarding pipeline gives different values on some
+tests because those programs have no nops. TEST_RESULTS.md explains this.
+
+
+STEP 4 - Run our 1024 Google tests (vector extension)
+-----------------------------------------------------
+  cmake --preset test
+  cmake --build build\test --target kites_vector_tests --parallel
+  cd newly_added_testcases\google_tests
+  ..\..\build\test\kites_vector_tests.exe
+  cd ..\..
+
+Expected end of the output:
+  [==========] 1024 tests from 2 test suites ran.
+  [  PASSED  ] 1024 tests.
+
+(Shortcut: double-click newly_added_testcases\google_tests\run_google_tests.bat)
+
+
+STEP 5 - Run the original Kites tests (shows nothing broke)
+-----------------------------------------------------------
+  cmake --preset test                  (skip if already done in step 4)
+  cmake --build --preset test-only --parallel
+  ctest --test-dir build\test -E Rvv --output-on-failure
+
+Expected: 100% tests passed (158 original Kites tests).
+
+
+STEP 6 - FIR benchmark: scalar vs vector
+----------------------------------------
+  cmake --preset cli
+  cmake --build --preset cli --parallel
+  build\cli\kites-cli.exe examples\fir_scalar.s      --vm rv5-h-f --stats
+  build\cli\kites-cli.exe examples\fir_vector_macc.s --vm rv5-h-f --stats
+  build\cli\kites-cli.exe examples\fir_scalar_fp.s   --vm rv5-h-f --stats
+  build\cli\kites-cli.exe examples\fir_vector_fp.s   --vm rv5-h-f --stats
+
+--vm can be: rvss, rv5-h-f, rv5-h-nf, rv5-nh-f, rv5-nh-nf
+
+Expected (instructions on single cycle / cycles on 5-stage hazard + forwarding):
+  fir_scalar.s        1319 / 1704
+  fir_vector_macc.s    319 /  416
+  fir_scalar_fp.s     1191 / 1576
+  fir_vector_fp.s      320 /  417
+
+(All in one go: powershell -ExecutionPolicy Bypass -File scripts\run_fir_benchmarks.ps1)
+
+
+More details: README.txt (top folder) and newly_added_testcases\README.txt

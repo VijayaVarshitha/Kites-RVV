@@ -1,0 +1,6 @@
+build/
+KitesApp/
+vm_state/
+*.lnk
+*.zip
+.vscode/
